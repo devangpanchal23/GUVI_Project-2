@@ -1,0 +1,318 @@
+LIBRARY MANAGEMENT DATABASE SYSTEM
+PROJECT 2
+
+Project Name:
+Library Management Database System – Project 2
+
+Tags:
+MySQL
+SQL
+Database
+
+Original Description:
+Design a relational database to manage books, users, and
+transactions. Includes queries for issuing, returning, and tracking
+books with proper relationships.
+
+1. PROJECT OVERVIEW
+The Library Management Database System is a pure relational database
+solution engineered to manage the catalog, patrons, and circulation
+operations of a library. The project demonstrates core relational
+database design principles, foreign-key referential integrity,
+structured query design, transaction handling for borrowing and
+returns, copy-tracking consistency, and data normalization.
+
+2. PROJECT OBJECTIVE
+The objective of this project is to model and implement a relational
+MySQL database that cleanly supports:
+1. Cataloging book titles and tracking physical inventory copies.
+2. Managing registered library users (patrons).
+3. Executing book checkouts (issuing books) with due dates.
+4. Executing book returns with audit preservation.
+5. Tracking physical copy availability in real-time.
+6. Maintaining historical borrowing records without data loss.
+
+3. TECHNOLOGIES USED
+- Relational Database Management System: MySQL 8.0+ / 5.7+ / MariaDB
+- Structured Query Language (SQL): DDL, DML, DQL
+- Integrity Concepts: Primary Keys, Foreign Keys, CHECK Constraints,
+  UNIQUE Constraints, NOT NULL, DEFAULT values, Relational JOINs
+
+4. FEATURES
+- Automated Identity Management: Auto-increment primary keys.
+- Referential Integrity: Cascading updates and restricted deletes
+  to prevent orphaned borrowing records.
+- Inventory Integrity: Invariant enforcement where available copies
+  cannot become negative or exceed total copies.
+- Complete Audit Trail: Returned records update status and timestamp
+  rather than being deleted from the database.
+- Granular Tracking: Separate queries for currently available,
+  currently issued, and overdue books.
+- Patron & Title Analytics: User borrowing history, book circulation
+  history, and aggregate catalog metrics.
+
+5. DATABASE STRUCTURE
+Database Name:
+library_management
+
+Consists of three core normalized tables:
+- users: Stores patron contact and membership information.
+- books: Stores catalog metadata, total stock, and available copies.
+- borrow_transactions: Junction/transaction table resolving the
+  many-to-many relationship between patrons and books over time.
+
+6. TABLE DESCRIPTIONS
+TABLE: users
+Stores individual library members.
+Columns:
+- user_id    : INT, PRIMARY KEY, AUTO_INCREMENT
+- name       : VARCHAR(100), NOT NULL
+- email      : VARCHAR(100), NOT NULL, UNIQUE
+- phone      : VARCHAR(20), NULL
+- created_at : DATE, NOT NULL
+
+TABLE: books
+Stores book title information and inventory counts.
+Columns:
+- book_id          : INT, PRIMARY KEY, AUTO_INCREMENT
+- title            : VARCHAR(150), NOT NULL
+- author           : VARCHAR(100), NOT NULL
+- category         : VARCHAR(50), NULL
+- isbn             : VARCHAR(20), NOT NULL, UNIQUE
+- total_copies     : INT, NOT NULL, CHECK (total_copies >= 0)
+- available_copies : INT, NOT NULL, CHECK (available_copies >= 0)
+Table Constraints:
+- CHECK (available_copies <= total_copies)
+
+TABLE: borrow_transactions
+Records circulation events when a patron borrows a book.
+Columns:
+- transaction_id : INT, PRIMARY KEY, AUTO_INCREMENT
+- user_id        : INT, NOT NULL, FOREIGN KEY -> users(user_id)
+- book_id        : INT, NOT NULL, FOREIGN KEY -> books(book_id)
+- issue_date     : DATE, NOT NULL
+- due_date       : DATE, NOT NULL
+- return_date    : DATE, NULL (populated only upon return)
+- status         : VARCHAR(20), NOT NULL, DEFAULT 'Issued'
+Table Constraints:
+- CHECK (status IN ('Issued', 'Returned'))
+
+7. TABLE RELATIONSHIPS
+Conceptually:
+  USERS (1) <------ (N) BORROW_TRANSACTIONS (N) ------> (1) BOOKS
+
+1. One user can have multiple borrowing transactions over time (1:N).
+2. One book can appear in multiple borrowing transactions over time (1:N).
+3. Each borrowing transaction references exactly one user and one book.
+4. The borrow_transactions table serves as a relational transaction
+   entity resolving the many-to-many relationship between users and books.
+
+8. PRIMARY KEYS
+- users.user_id                : Uniquely identifies each library patron.
+- books.book_id                : Uniquely identifies each book title.
+- borrow_transactions.transaction_id : Uniquely identifies each borrow event.
+
+9. FOREIGN KEYS
+- borrow_transactions.user_id -> REFERENCES users(user_id)
+  ON UPDATE CASCADE ON DELETE RESTRICT
+- borrow_transactions.book_id -> REFERENCES books(book_id)
+  ON UPDATE CASCADE ON DELETE RESTRICT
+
+Impact:
+Deletions of users or books with existing borrowing history are
+rejected, safeguarding relational integrity.
+
+10. PROJECT FILE STRUCTURE
+Project_2/
+│
+├── database.sql       -- DDL: Database creation, table definitions, constraints
+├── sample_data.sql    -- DML: Initial realistic dataset (patrons, books, transactions)
+├── queries.sql        -- DQL/DML: CRUD, issue, return, tracking, and reports
+└── setup_guide.txt    -- System documentation, architecture, execution steps
+
+11. SYSTEM REQUIREMENTS
+- Operating System: macOS, Linux, or Windows
+- Database Server: MySQL Server 5.7+ or 8.0+ (or MariaDB 10.3+)
+- Client Tools: MySQL Command Line Client, MySQL Workbench, or any SQL IDE
+
+12. MYSQL INSTALLATION REQUIREMENT
+Ensure MySQL Server is installed and running on your local machine:
+- macOS: brew install mysql && brew services start mysql
+- Linux: sudo apt update && sudo apt install mysql-server
+- Windows: Download MySQL Installer from https://dev.mysql.com/downloads/
+
+13. HOW TO CREATE DATABASE
+Option 1: Automatically via database.sql
+Running database.sql will automatically execute:
+CREATE DATABASE IF NOT EXISTS library_management;
+USE library_management;
+
+Option 2: Manually via MySQL prompt
+Run:
+mysql -u root -p
+mysql> CREATE DATABASE library_management;
+mysql> USE library_management;
+
+14. HOW TO RUN database.sql
+From terminal:
+mysql -u root -p < database.sql
+
+From inside MySQL client / Workbench:
+mysql> SOURCE /path/to/database.sql;
+
+15. HOW TO RUN sample_data.sql
+From terminal:
+mysql -u root -p < sample_data.sql
+
+From inside MySQL client / Workbench:
+mysql> SOURCE /path/to/sample_data.sql;
+
+16. HOW TO RUN queries.sql
+From terminal:
+mysql -u root -p < queries.sql
+
+From inside MySQL client / Workbench:
+Open queries.sql in MySQL Workbench and execute individual queries,
+or run via command line:
+mysql -u root -p library_management < queries.sql
+
+17. ISSUE BOOK PROCESS
+Step 1: Check if the book has available inventory:
+SELECT available_copies FROM books WHERE book_id = 3;
+
+Step 2: If available_copies > 0, insert the transaction record:
+INSERT INTO borrow_transactions (user_id, book_id, issue_date, due_date, status)
+VALUES (1, 3, CURDATE(), DATE_ADD(CURDATE(), INTERVAL 14 DAY), 'Issued');
+
+Step 3: Decrement the physical available count:
+UPDATE books
+SET available_copies = available_copies - 1
+WHERE book_id = 3 AND available_copies > 0;
+
+18. RETURN BOOK PROCESS
+Step 1: Update the active transaction status and record return date:
+UPDATE borrow_transactions
+SET return_date = CURDATE(),
+    status = 'Returned'
+WHERE transaction_id = 1
+  AND status = 'Issued';
+
+Step 2: Safely increment available count on the book:
+UPDATE books
+SET available_copies = available_copies + 1
+WHERE book_id = 1
+  AND available_copies < total_copies;
+
+Note: The guard `status = 'Issued'` prevents executing returns multiple
+times on the same transaction, and `available_copies < total_copies`
+ensures stock counts never exceed total owned copies.
+
+19. BOOK TRACKING
+Tracking available books:
+SELECT book_id, title, author, available_copies
+FROM books
+WHERE available_copies > 0;
+
+Tracking currently issued books:
+SELECT bt.transaction_id, u.name, b.title, bt.issue_date, bt.due_date
+FROM borrow_transactions bt
+JOIN users u ON bt.user_id = u.user_id
+JOIN books b ON bt.book_id = b.book_id
+WHERE bt.status = 'Issued';
+
+20. TRANSACTION HISTORY
+Full circulation history preserving every borrow and return:
+SELECT bt.transaction_id, u.name, b.title, bt.issue_date, bt.return_date, bt.status
+FROM borrow_transactions bt
+JOIN users u ON bt.user_id = u.user_id
+JOIN books b ON bt.book_id = b.book_id
+ORDER BY bt.transaction_id ASC;
+
+21. EXAMPLE QUERIES
+1. Overdue Books:
+SELECT u.name, b.title, bt.due_date
+FROM borrow_transactions bt
+JOIN users u ON bt.user_id = u.user_id
+JOIN books b ON bt.book_id = b.book_id
+WHERE bt.status = 'Issued' AND bt.due_date < CURDATE();
+
+2. User Borrowing History:
+SELECT b.title, bt.issue_date, bt.due_date, bt.status
+FROM borrow_transactions bt
+JOIN books b ON bt.book_id = b.book_id
+WHERE bt.user_id = 1;
+
+3. Total Physical Copies Available:
+SELECT SUM(available_copies) AS total_available FROM books;
+
+22. DATABASE RELATIONSHIPS
+The schema models a classic relational many-to-many relationship
+between users and books by using borrow_transactions as a junction
+entity with temporal attributes (issue_date, due_date, return_date).
+This design allows:
+- A user to borrow multiple books over time.
+- A book to be borrowed by multiple users over time.
+- Accurate historical tracking without redundancy.
+
+23. BASIC NORMALIZATION EXPLANATION
+First Normal Form (1NF):
+- All column values are atomic (e.g., single phone number, single title).
+- There are no repeating groups or comma-separated lists.
+- Each table possesses a designated primary key.
+
+Second Normal Form (2NF):
+- The schema is in 1NF.
+- Every non-key attribute is fully functionally dependent on the
+  entire primary key. Because single-attribute surrogate keys
+  (user_id, book_id, transaction_id) are used, partial dependency
+  is completely eliminated.
+
+Third Normal Form (3NF):
+- The schema is in 2NF.
+- There are no transitive dependencies (no non-key attribute depends
+  on another non-key attribute). Patron information (name, email)
+  is isolated in users; title information (title, author) is isolated
+  in books; borrow_transactions only stores foreign keys.
+
+24. TROUBLESHOOTING
+Problem 1: Foreign key constraint fails on table drop.
+Solution: Drop tables in reverse dependency order:
+DROP TABLE IF EXISTS borrow_transactions;
+DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS users;
+
+Problem 2: Cannot delete a user or book.
+Cause: The record is referenced in borrow_transactions (ON DELETE RESTRICT).
+Solution: This is intentional. To remove test records, delete records
+that have no borrow transactions or clean up the transactions first.
+
+Problem 3: Duplicate entry on email or ISBN.
+Solution: Ensure distinct values; email and ISBN have UNIQUE constraints.
+
+25. PROJECT LIMITATIONS
+This is strictly a pure database project designed for learning
+relational SQL. The project intentionally excludes:
+- Application frameworks (Node.js, Python, Java, etc.)
+- Web or graphical user interfaces (React, HTML/CSS)
+- Authentication and session handling
+- REST APIs / Web endpoints
+- Payment gateways and fine-collection calculation
+- Automated SMS/email notification systems
+
+26. LEARNING OBJECTIVES
+By completing and reviewing this project, a learner masters:
+1. Relational schema modeling and normalization (1NF, 2NF, 3NF).
+2. Primary and foreign key constraint definition.
+3. Domain constraints (NOT NULL, UNIQUE, CHECK).
+4. Multi-table inner JOIN operations.
+5. Invariant preservation (inventory synchronization during checkout/return).
+6. Non-destructive audit logging.
+
+27. QUICK START
+Step 1: Open terminal / MySQL client.
+Step 2: Execute schema:
+        mysql -u root -p < database.sql
+Step 3: Load sample data:
+        mysql -u root -p < sample_data.sql
+Step 4: Execute queries:
+        mysql -u root -p < queries.sql
